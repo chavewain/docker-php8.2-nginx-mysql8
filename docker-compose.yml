@@ -1,46 +1,48 @@
-# docker-compose.yml
-version: "3.8"
+version: '3'
+
 services:
-  nginx:
-    container_name: nginx
-    build: ./docker/nginx
-    command: nginx -g "daemon off;"
-    links:
-      - php
-    ports:
-      - "80:80"
+  # Database
+  db:
+    image: mysql:5.7
     volumes:
-      - ./logs/nginx:/var/log/nginx
-      - ./src:/var/www/html
-  php:
-    container_name: php
-    build: ./docker/php
-    links:
-      - mysql
-    ports:
-      - "9000:9000"
-    volumes:
-      - ./src:/var/www/html
-    working_dir: /var/www/html
-  mysql:
-    image: mysql:8.0.32
-    container_name: mysql
-    env_file:
-      - ./mysql.env
-    ports:
-      - "3306:3306"
-    volumes:
-      - ./database/mysql:/var/lib/mysql
-    command: '--default-authentication-plugin=mysql_native_password'
-  phpmyadmin:
-    image: phpmyadmin/phpmyadmin
-    container_name: pma
-    links:
-      - mysql
+      - db_data:/var/lib/mysql
+    restart: always
     environment:
-      PMA_HOST: mysql
-      PMA_PORT: 3306
-      PMA_ARBITRARY: 1
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress
+    networks:
+      - wpsite
+  # phpmyadmin
+  phpmyadmin:
+    depends_on:
+      - db
+    image: phpmyadmin/phpmyadmin
     restart: always
     ports:
-      - 8085:80
+      - '8080:80'
+    environment:
+      PMA_HOST: db
+      MYSQL_ROOT_PASSWORD: password 
+    networks:
+      - wpsite
+  # Wordpress
+  wordpress:
+    depends_on:
+      - db
+    image: wordpress:latest
+    ports:
+      - '8000:80'
+    restart: always
+    volumes: ['./:/var/www/html']
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+    networks:
+      - wpsite
+networks:
+  wpsite:
+volumes:
+  db_data:
